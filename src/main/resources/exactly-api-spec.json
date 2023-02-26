@@ -1,0 +1,3292 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Transaction API",
+    "version": "0.4.2",
+    "description": "0.4.0 -> 0.4.1: added possible `resultCode` values\n\n0.4.1 -> 0.4.2: fixed definition of recurring.initiator: must be `string`, not `array`\n",
+    "x-logo": {
+      "url": "https://exactly.com/images/logo-exactly-small-white.svg",
+      "altText": "exactly logo"
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "url": "https://api.exactly.com",
+      "description": "The single endpoint intended for `live` and `sandbox` transactions.      \nTransaction splitting is done based on your project type (`live`/`sandbox`).\n"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Transactions"
+    },
+    {
+      "name": "Disputes"
+    }
+  ],
+  "paths": {
+    "/api/v1/transactions": {
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "Create a transaction",
+        "description": "The endpoint creates new transaction.\n\nCreated transaction is processed in asynchronous manner, so there won't be any completed transaction in response\nto a request to this endpoint.\n*Get transaction details* endpoint or callback/webhook must be used to retrieve\nstatus of the transaction when it's completed.\n",
+        "operationId": "createTransaction",
+        "requestBody": {
+          "description": "Creates new transaction",
+          "content": {
+            "application/vnd.api+json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data"
+                ],
+                "properties": {
+                  "data": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/ChargeRequest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ChargeRecurringRequest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/RefundRequest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/TransferRequest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ChargeReversalRequest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/RefundReversalRequest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/TransferReversalRequest"
+                      }
+                    ]
+                  }
+                }
+              },
+              "examples": {
+                "Charge": {
+                  "summary": "Card payment",
+                  "description": "`Sandbox` environment accepts any valid card number, but it's highly advised to use test cards.\n\nThe following cards have fixed behaviour in `sandbox` environment:\n| Card Number         | Description                                             |\n|---------------------|---------------------------------------------------------|\n| 4000 0000 0000 7775 | the card has insufficient funds                         |\n| 4000 0000 0000 3220 | success during 3DS auth                                 |\n| 4000 0084 0000 1280 | the card fails 3DS auth                                 |\n| 4242 4242 4242 4242 | a transaction made with the card won't be settled; this is useful for testing reversals |\n",
+                  "value": {
+                    "data": {
+                      "type": "charge",
+                      "attributes": {
+                        "projectId": "40000000-e512-4872-ac85-000000000000",
+                        "paymentMethod": "card",
+                        "amount": "10.99",
+                        "currency": "USD",
+                        "referenceId": "charge-1",
+                        "returnUrl": "https://www.merchant-website.gg/sale?id=charge-1"
+                      }
+                    }
+                  }
+                },
+                "Charge_Reversal": {
+                  "summary": "Reversal of a payment",
+                  "description": "Reversals are allowed for non-settled payments, otherwise a `refund` must be used.\n\n\n**NB!** In `sandbox` environment the card `4242 4242 4242 4242` must to make a payment transaction\nintended for reversal.\n",
+                  "value": {
+                    "data": {
+                      "type": "charge-reversal",
+                      "attributes": {
+                        "originalReferenceId": "charge-1",
+                        "projectId": "40000000-e512-4872-ac85-000000000000",
+                        "referenceId": "charge-1-reversal-1"
+                      }
+                    }
+                  }
+                },
+                "Charge_with_card_details": {
+                  "summary": "Card payment with card details included in request",
+                  "value": {
+                    "data": {
+                      "type": "charge",
+                      "attributes": {
+                        "projectId": "40000000-e512-4872-ac85-000000000000",
+                        "paymentMethod": "card",
+                        "amount": "10.99",
+                        "currency": "USD",
+                        "source": {
+                          "type": "card",
+                          "attributes": {
+                            "cardHolderName": "DR E GUEVARA",
+                            "number": "4977 9494 9494 9497",
+                            "expiryYear": "24",
+                            "expiryMonth": 5,
+                            "csc": "042"
+                          }
+                        },
+                        "customerIp": "8.16.32.64"
+                      }
+                    }
+                  }
+                },
+                "Refund": {
+                  "summary": "Refund",
+                  "value": {
+                    "data": {
+                      "type": "refund",
+                      "attributes": {
+                        "originalId": "968dd6e0-8288-4c69-995d-c8a900cc1030",
+                        "projectId": "40000000-e512-4872-ac85-000000000000"
+                      }
+                    }
+                  }
+                },
+                "Open_Banking_Charge": {
+                  "summary": "Open Banking: Payment",
+                  "description": "The payment method requires a customer redirect to the checkout form.\nRedirect details might be sent as web-hook or they will be available in transaction details (see *Get transaction \ndetails* endpoint) at some point.\n\nFields:\n  - `customerDescription` is required;\n  - `email` is optional; in case it's not provided a customer will input their email at the checkout form\nand the redirect details will be sent in response to this request.\n",
+                  "value": {
+                    "data": {
+                      "type": "charge",
+                      "attributes": {
+                        "projectId": "40000000-e512-4872-ac85-000000000000",
+                        "paymentMethod": "open-banking",
+                        "email": "customer@gmailo.com",
+                        "customerDescription": "Book, ISBN: 1847370292 \"The Secret\"",
+                        "amount": "10.99",
+                        "currency": "EUR",
+                        "referenceId": "charge-1",
+                        "returnUrl": "https://www.merchant-website.gg/sale?id=charge-1"
+                      }
+                    }
+                  }
+                },
+                "Recurring_Charge_Initial": {
+                  "summary": "Recurring: Initial card payment",
+                  "description": "Initial recurring payment starts a series of subsequent payments for a single customer using the same\npayment credentials (e.g. card details) that will be stored by the system.\n\nInitial recurring payment defines use case for all subsequent payments that would be made against this\ninitial payment.\n\n**NB! `charge-recurring` transaction looks very similar to `charge`, but they are very different.**\n\n`charge-recurring` transaction requires `recurring` property, containing the following properties:\n- `scenario` - supported values:\n     - `unscheduled` - one-click payment without fixed amount or payment frequency\n- `expectedInitiators` - a set of\n     - `customer` - a customer will be present on subsequent payments;\n     - `merchant` - a customer won't be present - a payment would be initiated by you with consent of\nthe customer.\n\nThose properties will be reported to a customer's payment credentials issuer (e.g., card issuer) to\ninform a nature of your contract with the customer.\n\n`recurring.expectedInitiators` might contain both `customer` and `merchant`. In this case you will be\nable to mix customer initiated payments with merchant initiated payments. Due to technical aspects\nthe future use of mixed initial transaction will be reported to issuer as merchant initiated.\n",
+                  "value": {
+                    "data": {
+                      "type": "charge-recurring",
+                      "attributes": {
+                        "projectId": "40000000-e512-4872-ac85-000000000000",
+                        "paymentMethod": "card",
+                        "amount": "10.99",
+                        "currency": "USD",
+                        "referenceId": "charge-rec-1",
+                        "returnUrl": "https://www.merchant-website.gg/sale?id=charge-rec-1",
+                        "recurring": {
+                          "scenario": "unscheduled",
+                          "expectedInitiators": [
+                            "customer"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "Recurring_Charge_Subsequent": {
+                  "summary": "Recurring: Subsequent card payment",
+                  "description": "Subsequent recurring payment should always be made against successful initial recurring payment (e.g.\nthe first transaction in recurring series, not the previous). To reference initial recurring payment \nany of the following fields might be used:\n- `originalId` - ID of transaction returned by the API in response to initial transaction;\n- `originalReferenceId` - reference ID provided by you in initial transaction request.\n\n`recurring.initiator` must match values provided in `recurring.expectedInitiators` of initial recurring\npayment.\n",
+                  "value": {
+                    "data": {
+                      "type": "charge-recurring",
+                      "attributes": {
+                        "projectId": "40000000-e512-4872-ac85-000000000000",
+                        "paymentMethod": "card",
+                        "amount": "6.99",
+                        "currency": "EUR",
+                        "originalReferenceId": "charge-rec-1",
+                        "referenceId": "charge-rec-5",
+                        "returnUrl": "https://www.merchant-website.gg/sale?id=charge-rec-5",
+                        "recurring": {
+                          "initiator": "customer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Transaction created",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              }
+            },
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TransactionIdObject"
+                    },
+                    "included": {
+                      "description": "A list of additional data related to the created transaction, e.g. request to redirect a customer\nto checkout form.\n",
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "description": "Redirect URL to checkout form",
+                            "required": [
+                              "type",
+                              "id",
+                              "attributes"
+                            ],
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "action"
+                                ]
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "ID of action; not essential, could be safely ignored"
+                              },
+                              "attributes": {
+                                "type": "object",
+                                "required": [
+                                  "action",
+                                  "url"
+                                ],
+                                "properties": {
+                                  "action": {
+                                    "type": "string",
+                                    "enum": [
+                                      "redirect-required"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024,
+                                    "example": "https://checkout.exactly.com/payment/9700d07c-aca7-4cce-9c3c-8a45c7a22ed8"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "Charge": {
+                    "summary": "Charge",
+                    "description": "The response is returned when no card details were provided in request,\nplease see `Charge` request example.\n",
+                    "value": {
+                      "data": {
+                        "type": "charge",
+                        "id": "3d639f8e-b55b-40bc-a3d0-a16057a1515e"
+                      },
+                      "included": [
+                        {
+                          "type": "action",
+                          "id": "3d639f8e-b55b-40bc-a3d0-a16057a1515e_51cdb4e1",
+                          "attributes": {
+                            "action": "redirect-required",
+                            "url": "https://checkout.tld/payment/3d639f8e-b55b-40bc-a3d0-a16057a1515e"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "Charge_with_card_details": {
+                    "summary": "Charge with card details",
+                    "description": "The response is returned when card details were provided in request,\nplease see `Charge with card details` request example.                  \n",
+                    "value": {
+                      "data": {
+                        "type": "charge",
+                        "id": "3d639f8e-b55b-40bc-a3d0-a16057a1515e"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        },
+        "callbacks": {
+          "transactionEvent": {
+            "preconfiguredWebhookUrl": {
+              "post": {
+                "summary": "Transaction event webhook",
+                "description": "**NB! Webhook URL must be pre-configured in your Dashboard before use.**\n\nIt's advised to get transactions status using *Get transaction details* endpoint when the webhook is\nreceived.\n",
+                "requestBody": {
+                  "required": true,
+                  "content": {
+                    "application/vnd.api+json": {
+                      "schema": {
+                        "type": "object",
+                        "required": [
+                          "data",
+                          "included",
+                          "meta"
+                        ],
+                        "properties": {
+                          "data": {
+                            "type": "object",
+                            "required": [
+                              "type",
+                              "attributes",
+                              "relationships"
+                            ],
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "webhook"
+                                ]
+                              },
+                              "attributes": {
+                                "type": "object",
+                                "required": [
+                                  "event",
+                                  "createdAt"
+                                ],
+                                "properties": {
+                                  "event": {
+                                    "type": "string",
+                                    "enum": [
+                                      "charge.processed",
+                                      "charge.attributes-required",
+                                      "charge.redirect-required",
+                                      "charge.settled",
+                                      "charge.failed",
+                                      "refund.processed",
+                                      "refund.settled",
+                                      "refund.failed",
+                                      "transfer.processed",
+                                      "transfer.attributes-required",
+                                      "transfer.redirect-required",
+                                      "transfer.settled",
+                                      "transfer.failed",
+                                      "charge-reversal.processed",
+                                      "charge-reversal.settled",
+                                      "charge-reversal.failed",
+                                      "refund-reversal.processed",
+                                      "refund-reversal.settled",
+                                      "refund-reversal.failed",
+                                      "transfer-reversal.processed",
+                                      "transfer-reversal.settled",
+                                      "transfer-reversal.failed",
+                                      "chargeback.created",
+                                      "chargeback.won",
+                                      "second-chargeback.created",
+                                      "second-chargeback.won",
+                                      "second-chargeback.lost"
+                                    ]
+                                  },
+                                  "createdAt": {
+                                    "$ref": "#/components/schemas/DateTime"
+                                  },
+                                  "requiredAttributes": {
+                                    "$ref": "#/components/schemas/RequiredAttributes"
+                                  },
+                                  "redirectUrl": {
+                                    "type": "string",
+                                    "format": "url",
+                                    "description": "URL to redirect a customer to proceed with transaction",
+                                    "example": "https://checkout.exactly.com/payments/3d639f8e-b55b-40bc-a3d0-a16057a1515e"
+                                  }
+                                }
+                              },
+                              "relationships": {
+                                "type": "object",
+                                "required": [
+                                  "transaction",
+                                  "webhookEndpoint"
+                                ],
+                                "properties": {
+                                  "transaction": {
+                                    "type": "object",
+                                    "required": [
+                                      "data"
+                                    ],
+                                    "properties": {
+                                      "data": {
+                                        "type": "object",
+                                        "required": [
+                                          "type",
+                                          "id"
+                                        ],
+                                        "properties": {
+                                          "type": {
+                                            "$ref": "#/components/schemas/TransactionType"
+                                          },
+                                          "id": {
+                                            "$ref": "#/components/schemas/Uuid"
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "webhookEndpoint": {
+                                    "type": "object",
+                                    "required": [
+                                      "data"
+                                    ],
+                                    "properties": {
+                                      "data": {
+                                        "type": "object",
+                                        "required": [
+                                          "type",
+                                          "id"
+                                        ],
+                                        "properties": {
+                                          "type": {
+                                            "type": "string",
+                                            "enum": [
+                                              "webhook-endpoint"
+                                            ]
+                                          },
+                                          "id": {
+                                            "$ref": "#/components/schemas/Uuid"
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "included": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 2,
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "type",
+                                "id",
+                                "attributes"
+                              ],
+                              "properties": {
+                                "type": {
+                                  "$ref": "#/components/schemas/TransactionType"
+                                },
+                                "id": {
+                                  "$ref": "#/components/schemas/Uuid"
+                                },
+                                "attributes": {
+                                  "type": "object",
+                                  "required": [
+                                    "environmentMode",
+                                    "status",
+                                    "projectId",
+                                    "createdAt"
+                                  ],
+                                  "properties": {
+                                    "environmentMode": {
+                                      "$ref": "#/components/schemas/EnvironmentMode"
+                                    },
+                                    "status": {
+                                      "type": "string",
+                                      "enum": [
+                                        "processed",
+                                        "failed",
+                                        "processing",
+                                        "action-required"
+                                      ]
+                                    },
+                                    "projectId": {
+                                      "$ref": "#/components/schemas/Uuid"
+                                    },
+                                    "createdAt": {
+                                      "$ref": "#/components/schemas/DateTimeExtended"
+                                    },
+                                    "referenceId": {
+                                      "$ref": "#/components/schemas/ReferenceId"
+                                    },
+                                    "meta": {
+                                      "$ref": "#/components/schemas/MetaData"
+                                    },
+                                    "originalId": {
+                                      "$ref": "#/components/schemas/Uuid"
+                                    },
+                                    "originalReferenceId": {
+                                      "$ref": "#/components/schemas/ReferenceId"
+                                    },
+                                    "processing": {
+                                      "type": "object",
+                                      "required": [
+                                        "resultCode",
+                                        "processedAt"
+                                      ],
+                                      "properties": {
+                                        "resultCode": {
+                                          "$ref": "#/components/schemas/ResultCode"
+                                        },
+                                        "processedAt": {
+                                          "$ref": "#/components/schemas/DateTimeExtended"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "meta": {
+                            "type": "object",
+                            "required": [
+                              "apiVersion"
+                            ],
+                            "properties": {
+                              "apiVersion": {
+                                "type": "string",
+                                "enum": [
+                                  "1.0"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "examples": {
+                        "Charge_Processed": {
+                          "summary": "Charge Processed",
+                          "value": {
+                            "data": {
+                              "type": "webhook",
+                              "attributes": {
+                                "event": "charge.processed",
+                                "createdAt": "2022-07-01T13:33:58+00:00"
+                              },
+                              "relationships": {
+                                "webhookEndpoint": {
+                                  "data": {
+                                    "type": "webhook-endpoint",
+                                    "id": "00000000-0000-0000-0000-000000000000"
+                                  }
+                                },
+                                "transaction": {
+                                  "data": {
+                                    "type": "charge",
+                                    "id": "00000000-0000-1111-0000-000000000000"
+                                  }
+                                }
+                              }
+                            },
+                            "included": [
+                              {
+                                "type": "charge",
+                                "id": "00000000-0000-1111-0000-000000000000",
+                                "attributes": {
+                                  "status": "processed",
+                                  "referenceId": "96d6ac00-ec92-4954-8bc2-aab588970c51",
+                                  "createdAt": "2022-01-01T12:00:00.000000+00:00",
+                                  "environmentMode": "sandbox",
+                                  "originalId": "96d6ac60-b011-430a-8818-c4beb175c1bb",
+                                  "originalReferenceId": "96d6ac60-b000-430a-8818-c4beb175c1bb",
+                                  "processing": {
+                                    "resultCode": "success",
+                                    "processedAt": "2022-01-01T12:00:00.000000+00:00"
+                                  },
+                                  "projectId": "96d4a23a-c6c2-4c3d-b911-c80b917e0610",
+                                  "meta": "meta"
+                                }
+                              }
+                            ],
+                            "meta": {
+                              "apiVersion": "1.0"
+                            }
+                          }
+                        },
+                        "Redirect_Required": {
+                          "summary": "Redirect Required",
+                          "value": {
+                            "data": {
+                              "type": "webhook",
+                              "attributes": {
+                                "event": "charge.redirect-required",
+                                "redirectUrl": "https://checkout.tld/payment/3d639f8e-b55b-40bc-a3d0-a16057a1515e",
+                                "createdAt": "2022-07-01T13:33:58+00:00"
+                              },
+                              "relationships": {
+                                "webhookEndpoint": {
+                                  "data": {
+                                    "type": "webhook-endpoint",
+                                    "id": "00000000-0000-0000-0000-000000000000"
+                                  }
+                                },
+                                "transaction": {
+                                  "data": {
+                                    "type": "charge",
+                                    "id": "3d639f8e-b55b-40bc-a3d0-a16057a1515e"
+                                  }
+                                }
+                              }
+                            },
+                            "included": [
+                              {
+                                "type": "charge",
+                                "id": "3d639f8e-b55b-40bc-a3d0-a16057a1515e",
+                                "attributes": {
+                                  "environmentMode": "sandbox",
+                                  "status": "action-required",
+                                  "projectId": "40000000-e512-4872-ac85-000000000000",
+                                  "referenceId": "charge-1",
+                                  "createdAt": "2022-01-01T12:00:00.000000+00:00"
+                                }
+                              }
+                            ],
+                            "meta": {
+                              "apiVersion": "1.0"
+                            }
+                          }
+                        },
+                        "Attributes_Required": {
+                          "summary": "Attributes Required",
+                          "value": {
+                            "data": {
+                              "type": "webhook",
+                              "attributes": {
+                                "event": "charge.attributes-required",
+                                "requiredAttributes": [
+                                  {
+                                    "key": "email",
+                                    "rules": {
+                                      "required": true,
+                                      "minLength": 6,
+                                      "maxLength": 100
+                                    }
+                                  },
+                                  {
+                                    "key": "billingCountry",
+                                    "rules": {
+                                      "required": true,
+                                      "minLength": 2,
+                                      "maxLength": 2
+                                    }
+                                  }
+                                ],
+                                "createdAt": "2022-07-01T13:33:58+00:00"
+                              },
+                              "relationships": {
+                                "webhookEndpoint": {
+                                  "data": {
+                                    "type": "webhook-endpoint",
+                                    "id": "00000000-0000-0000-0000-000000000000"
+                                  }
+                                },
+                                "transaction": {
+                                  "data": {
+                                    "type": "charge",
+                                    "id": "00000000-0000-1111-0000-000000000000"
+                                  }
+                                }
+                              }
+                            },
+                            "included": [
+                              {
+                                "type": "charge",
+                                "id": "00000000-0000-1111-0000-000000000000",
+                                "attributes": {
+                                  "environmentMode": "sandbox",
+                                  "status": "action-required",
+                                  "projectId": "96d4a23a-c6c2-4c3d-b911-c80b917e0610",
+                                  "referenceId": "96d6ac00-ec92-4954-8bc2-aab588970c51",
+                                  "createdAt": "2022-01-01T12:00:00.000000+00:00",
+                                  "meta": "meta"
+                                }
+                              }
+                            ],
+                            "meta": {
+                              "apiVersion": "1.0"
+                            }
+                          }
+                        },
+                        "Charge_Failed": {
+                          "summary": "Charge Failed",
+                          "value": {
+                            "data": {
+                              "type": "webhook",
+                              "attributes": {
+                                "event": "charge.failed",
+                                "createdAt": "2022-07-01T13:33:58+00:00"
+                              },
+                              "relationships": {
+                                "webhookEndpoint": {
+                                  "data": {
+                                    "type": "webhook-endpoint",
+                                    "id": "00000000-0000-0000-0000-000000000000"
+                                  }
+                                },
+                                "transaction": {
+                                  "data": {
+                                    "type": "charge",
+                                    "id": "00000000-0000-1111-0000-000000000000"
+                                  }
+                                }
+                              }
+                            },
+                            "included": [
+                              {
+                                "type": "charge",
+                                "id": "00000000-0000-1111-0000-000000000000",
+                                "attributes": {
+                                  "status": "failed",
+                                  "referenceId": "96d6ac00-ec92-4954-8bc2-aab588970c51",
+                                  "createdAt": "2022-01-01T12:00:00.000000+00:00",
+                                  "environmentMode": "sandbox",
+                                  "originalId": "96d6ac60-b011-430a-8818-c4beb175c1bb",
+                                  "originalReferenceId": "96d6ac60-b000-430a-8818-c4beb175c1bb",
+                                  "processing": {
+                                    "resultCode": "rejected.volume_limit",
+                                    "processedAt": "2022-01-01T12:00:00.000000+00:00"
+                                  },
+                                  "projectId": "96d4a23a-c6c2-4c3d-b911-c80b917e0610",
+                                  "meta": "meta"
+                                }
+                              }
+                            ],
+                            "meta": {
+                              "apiVersion": "1.0"
+                            }
+                          }
+                        },
+                        "Refund_Processed": {
+                          "summary": "Refund Processed",
+                          "value": {
+                            "data": {
+                              "type": "webhook",
+                              "attributes": {
+                                "event": "refund.processed",
+                                "createdAt": "2022-07-01T13:33:58+00:00"
+                              },
+                              "relationships": {
+                                "webhookEndpoint": {
+                                  "data": {
+                                    "type": "webhook-endpoint",
+                                    "id": "00000000-0000-0000-0000-000000000000"
+                                  }
+                                },
+                                "transaction": {
+                                  "data": {
+                                    "type": "refund",
+                                    "id": "00000000-0000-1111-0000-000000000000"
+                                  }
+                                }
+                              }
+                            },
+                            "meta": {
+                              "apiVersion": "1.0"
+                            },
+                            "included": [
+                              {
+                                "type": "refund",
+                                "id": "00000000-0000-1111-0000-000000000000",
+                                "attributes": {
+                                  "environmentMode": "sandbox",
+                                  "status": "processed",
+                                  "originalId": "96d6ac60-b011-430a-8818-c4beb175c1bb",
+                                  "originalReferenceId": "96d6ac60-b000-430a-8818-c4beb175c1bb",
+                                  "processing": {
+                                    "resultCode": "success",
+                                    "processedAt": "2022-01-01T12:00:00.000000+00:00"
+                                  },
+                                  "projectId": "96d4a23a-c6c2-4c3d-b911-c80b917e0610",
+                                  "referenceId": "96d6ac00-ec92-4954-8bc2-aab588970c51",
+                                  "createdAt": "2022-01-01T12:00:00.000000+00:00",
+                                  "meta": "meta"
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "Refund_Failed": {
+                          "summary": "Refund Failed",
+                          "value": {
+                            "data": {
+                              "type": "webhook",
+                              "attributes": {
+                                "event": "refund.failed",
+                                "createdAt": "2022-07-01T13:33:58+00:00"
+                              },
+                              "relationships": {
+                                "webhookEndpoint": {
+                                  "data": {
+                                    "type": "webhook-endpoint",
+                                    "id": "00000000-0000-0000-0000-000000000000"
+                                  }
+                                },
+                                "transaction": {
+                                  "data": {
+                                    "type": "refund",
+                                    "id": "00000000-0000-1111-0000-000000000000"
+                                  }
+                                }
+                              }
+                            },
+                            "included": [
+                              {
+                                "type": "refund",
+                                "id": "00000000-0000-1111-0000-000000000000",
+                                "attributes": {
+                                  "status": "failed",
+                                  "referenceId": "96d6ac00-ec92-4954-8bc2-aab588970c51",
+                                  "createdAt": "2022-01-01T12:00:00.000000+00:00",
+                                  "environmentMode": "sandbox",
+                                  "originalId": "96d6ac60-b011-430a-8818-c4beb175c1bb",
+                                  "originalReferenceId": "96d6ac60-b000-430a-8818-c4beb175c1bb",
+                                  "processing": {
+                                    "resultCode": "rejected.count_limit",
+                                    "processedAt": "2022-01-01T12:00:00.000000+00:00"
+                                  },
+                                  "projectId": "96d4a23a-c6c2-4c3d-b911-c80b917e0610",
+                                  "meta": "meta"
+                                }
+                              }
+                            ],
+                            "meta": {
+                              "apiVersion": "1.0"
+                            }
+                          }
+                        },
+                        "Chargeback_Created": {
+                          "summary": "Chargeback Created",
+                          "value": {
+                            "data": {
+                              "type": "webhook",
+                              "attributes": {
+                                "event": "chargeback.created",
+                                "createdAt": "2022-07-01T13:33:58+00:00"
+                              },
+                              "relationships": {
+                                "webhookEndpoint": {
+                                  "data": {
+                                    "type": "webhook-endpoint",
+                                    "id": "00000000-0000-0000-0000-000000000000"
+                                  }
+                                },
+                                "transaction": {
+                                  "data": {
+                                    "type": "chargeback",
+                                    "id": "00000000-0000-1111-0000-000000000000"
+                                  }
+                                }
+                              }
+                            },
+                            "meta": {
+                              "apiVersion": "1.0"
+                            },
+                            "included": [
+                              {
+                                "type": "chargeback",
+                                "id": "00000000-0000-1111-0000-000000000000",
+                                "attributes": {
+                                  "environmentMode": "sandbox",
+                                  "status": "processed",
+                                  "originalId": "96d6ac60-b011-430a-8818-c4beb175c1bb",
+                                  "originalReferenceId": "96d6ac60-b000-430a-8818-c4beb175c1bb",
+                                  "processing": {
+                                    "resultCode": "success",
+                                    "processedAt": "2022-01-01T12:00:00.000000+00:00"
+                                  },
+                                  "projectId": "96d4a23a-c6c2-4c3d-b911-c80b917e0610",
+                                  "createdAt": "2022-01-01T12:00:00.000000+00:00",
+                                  "meta": "meta"
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "Chargeback_Won": {
+                          "summary": "Chargeback Won",
+                          "value": {
+                            "data": {
+                              "type": "webhook",
+                              "attributes": {
+                                "event": "chargeback.won",
+                                "createdAt": "2022-07-01T13:33:58+00:00"
+                              },
+                              "relationships": {
+                                "webhookEndpoint": {
+                                  "data": {
+                                    "type": "webhook-endpoint",
+                                    "id": "00000000-0000-0000-0000-000000000000"
+                                  }
+                                },
+                                "transaction": {
+                                  "data": {
+                                    "type": "chargeback-refund",
+                                    "id": "00000000-0000-1111-0000-000000000000"
+                                  }
+                                }
+                              }
+                            },
+                            "meta": {
+                              "apiVersion": "1.0"
+                            },
+                            "included": [
+                              {
+                                "type": "chargeback-refund",
+                                "id": "00000000-0000-1111-0000-000000000000",
+                                "attributes": {
+                                  "environmentMode": "sandbox",
+                                  "status": "processed",
+                                  "originalId": "96d6ac60-b011-430a-8818-c4beb175c1bb",
+                                  "processing": {
+                                    "resultCode": "success",
+                                    "processedAt": "2022-01-01T12:00:00.000000+00:00"
+                                  },
+                                  "projectId": "96d4a23a-c6c2-4c3d-b911-c80b917e0610",
+                                  "createdAt": "2022-01-01T12:00:00.000000+00:00",
+                                  "meta": "meta"
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "Second-chargeback_Created": {
+                          "summary": "Second Chargeback Created",
+                          "value": {
+                            "data": {
+                              "type": "webhook",
+                              "attributes": {
+                                "event": "second-chargeback.created",
+                                "createdAt": "2022-07-01T13:33:58+00:00"
+                              },
+                              "relationships": {
+                                "webhookEndpoint": {
+                                  "data": {
+                                    "type": "webhook-endpoint",
+                                    "id": "00000000-0000-0000-0000-000000000000"
+                                  }
+                                },
+                                "transaction": {
+                                  "data": {
+                                    "type": "second-chargeback",
+                                    "id": "00000000-0000-1111-0000-000000000000"
+                                  }
+                                }
+                              }
+                            },
+                            "meta": {
+                              "apiVersion": "1.0"
+                            },
+                            "included": [
+                              {
+                                "type": "second-chargeback",
+                                "id": "00000000-0000-1111-0000-000000000000",
+                                "attributes": {
+                                  "environmentMode": "sandbox",
+                                  "status": "processed",
+                                  "originalId": "96d6ac60-b011-430a-8818-c4beb175c1bb",
+                                  "processing": {
+                                    "resultCode": "success",
+                                    "processedAt": "2022-01-01T12:00:00.000000+00:00"
+                                  },
+                                  "projectId": "96d4a23a-c6c2-4c3d-b911-c80b917e0610",
+                                  "createdAt": "2022-01-01T12:00:00.000000+00:00",
+                                  "meta": "meta"
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "Second-chargeback_Won": {
+                          "summary": "Second Chargeback Won",
+                          "value": {
+                            "data": {
+                              "type": "webhook",
+                              "attributes": {
+                                "event": "second-chargeback.won",
+                                "createdAt": "2022-07-01T13:33:58+00:00"
+                              },
+                              "relationships": {
+                                "webhookEndpoint": {
+                                  "data": {
+                                    "type": "webhook-endpoint",
+                                    "id": "00000000-0000-0000-0000-000000000000"
+                                  }
+                                },
+                                "transaction": {
+                                  "data": {
+                                    "type": "second-chargeback-refund",
+                                    "id": "00000000-0000-1111-0000-000000000000"
+                                  }
+                                }
+                              }
+                            },
+                            "meta": {
+                              "apiVersion": "1.0"
+                            },
+                            "included": [
+                              {
+                                "type": "second-chargeback-refund",
+                                "id": "00000000-0000-1111-0000-000000000000",
+                                "attributes": {
+                                  "environmentMode": "sandbox",
+                                  "status": "processed",
+                                  "originalId": "96d6ac60-b011-430a-8818-c4beb175c1bb",
+                                  "processing": {
+                                    "resultCode": "success",
+                                    "processedAt": "2022-01-01T12:00:00.000000+00:00"
+                                  },
+                                  "projectId": "96d4a23a-c6c2-4c3d-b911-c80b917e0610",
+                                  "createdAt": "2022-01-01T12:00:00.000000+00:00",
+                                  "meta": "meta"
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "Second-chargeback_Lost": {
+                          "summary": "Second Chargeback Lost",
+                          "value": {
+                            "data": {
+                              "type": "webhook",
+                              "attributes": {
+                                "event": "second-chargeback.won",
+                                "createdAt": "2022-07-01T13:33:58+00:00"
+                              },
+                              "relationships": {
+                                "webhookEndpoint": {
+                                  "data": {
+                                    "type": "webhook-endpoint",
+                                    "id": "00000000-0000-0000-0000-000000000000"
+                                  }
+                                },
+                                "transaction": {
+                                  "data": {
+                                    "type": "second-chargeback-capture",
+                                    "id": "00000000-0000-1111-0000-000000000000"
+                                  }
+                                }
+                              }
+                            },
+                            "meta": {
+                              "apiVersion": "1.0"
+                            },
+                            "included": [
+                              {
+                                "type": "second-chargeback-capture",
+                                "id": "00000000-0000-1111-0000-000000000000",
+                                "attributes": {
+                                  "environmentMode": "sandbox",
+                                  "status": "processed",
+                                  "originalId": "96d6ac60-b011-430a-8818-c4beb175c1bb",
+                                  "processing": {
+                                    "resultCode": "success",
+                                    "processedAt": "2022-01-01T12:00:00.000000+00:00"
+                                  },
+                                  "projectId": "96d4a23a-c6c2-4c3d-b911-c80b917e0610",
+                                  "createdAt": "2022-01-01T12:00:00.000000+00:00",
+                                  "meta": "meta"
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "parameters": [
+                  {
+                    "in": "header",
+                    "name": "X-Request-Signature",
+                    "description": "**It's highly advised to validate presence and correctness of the signature to ensure validity\nof the webhook.**\n\nHMAC-SHA256 signature of request body. Signature is calculated using secret of webhook endpoint\nconfigured in Dashboard.\n",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "in": "header",
+                    "name": "X-Request-Id",
+                    "required": true,
+                    "description": "UUID of webhook request",
+                    "schema": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                ],
+                "responses": {
+                  "202": {
+                    "description": "Your server should return this code if it accepts the callback/webhook.\nAdditional attempts to trigger callback/webhook would be made in case of non-202 HTTP status code.\n"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "List transactions",
+        "description": "The endpoint returns a list of created transactions.\nThe list is always ordered by transaction ID in ascending order, e.g. old transactions will be first.\n",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "resourceId",
+            "description": "A comma-separated list of IDs of resources (project, channel, etc).\nOnly transactions created on those resources will be returned.\n",
+            "explode": false,
+            "schema": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "items": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  {
+                    "description": "ID of project, channel, etc."
+                  }
+                ]
+              }
+            },
+            "example": [
+              "9826d8df-3995-41f1-ba12-f02a9de076b0",
+              "9826d8ea-a388-449c-8268-315b92b081ae"
+            ]
+          },
+          {
+            "in": "query",
+            "name": "referenceId",
+            "description": "A comma-separated list of reference IDs.\n",
+            "explode": false,
+            "schema": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "items": {
+                "$ref": "#/components/schemas/ReferenceId"
+              }
+            }
+          },
+          {
+            "in": "query",
+            "name": "createdAt",
+            "description": "Only transactions with `createdAt` more or equal the value will be returned.\n",
+            "explode": false,
+            "schema": {
+              "$ref": "#/components/schemas/DateTime"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "description": "A comma-separated list of transaction statuses.\nOnly transactions with current status equal the value will be returned.\n",
+            "explode": false,
+            "schema": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/components/schemas/TransactionStatus"
+              }
+            }
+          },
+          {
+            "in": "query",
+            "name": "transactionType",
+            "description": "A comma-separated list of transaction types.\nOnly transactions of the provided type will be returned.\n",
+            "explode": false,
+            "schema": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/components/schemas/TransactionType"
+              }
+            }
+          },
+          {
+            "in": "query",
+            "name": "transactionTypeGroup",
+            "description": "A comma-separated list of transaction type groups.\nOnly transactions of the provided type will be returned.\n\n**The parameter should not be combined with `transactionType`**\n",
+            "explode": false,
+            "schema": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "payments",
+                  "chargebacks"
+                ],
+                "description": "- `payments` - include all payment related transactions, e.g. charges, refunds, reversals, etc.\n- `chargebacks` - include chargeback related transactions, e.g. `chargeback`, `chargeback-refund`.\n"
+              }
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "description": "Cursor-based pagination.\n\nThe parameter should be used to define:\n - size of response page\n - current page (pass ID of a last transaction received in `page[after]` to switch to the next page)\n",
+            "style": "deepObject",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "size": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000,
+                  "default": 1000
+                },
+                "after": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Uuid"
+                    },
+                    {
+                      "description": "ID of transaction.\nOnly transactions created after this one will be returned.\n"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "operationId": "listTransactions",
+        "responses": {
+          "200": {
+            "description": "A list of transaction details",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              }
+            },
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "minItems": 0,
+                      "maxItems": 1000,
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/ChargeTransaction"
+                          },
+                          {
+                            "$ref": "#/components/schemas/ChargeRecurringTransaction"
+                          },
+                          {
+                            "$ref": "#/components/schemas/ChargeReversalTransaction"
+                          },
+                          {
+                            "$ref": "#/components/schemas/RefundReversalTransaction"
+                          },
+                          {
+                            "$ref": "#/components/schemas/RefundTransaction"
+                          }
+                        ]
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ListResponseMeta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/transactions/{transactionId}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "transactionId",
+          "required": true,
+          "description": "ID of a transaction to retrieve",
+          "schema": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "Get transaction details",
+        "description": "Returns details of a transaction",
+        "operationId": "getTransactionById",
+        "responses": {
+          "200": {
+            "description": "Transaction details",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              }
+            },
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/ChargeTransaction"
+                        },
+                        {
+                          "$ref": "#/components/schemas/ChargeRecurringTransaction"
+                        },
+                        {
+                          "$ref": "#/components/schemas/ChargeReversalTransaction"
+                        },
+                        {
+                          "$ref": "#/components/schemas/RefundReversalTransaction"
+                        },
+                        {
+                          "$ref": "#/components/schemas/RefundTransaction"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400_get"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      }
+    },
+    "/api/v1/transactions/{transactionId}/attributes": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "transactionId",
+          "required": true,
+          "description": "ID of a transaction to attach attributes",
+          "schema": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "Attach attributes to transaction",
+        "description": "Attaches provided attributes to a transaction in progress when it was requested by webhook.\nThe endpoint is used in advanced workflows and might not be required for regular integration.\n",
+        "operationId": "attachTransactionAttributes",
+        "requestBody": {
+          "description": "Attaches attributes to a transaction",
+          "content": {
+            "application/vnd.api+json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data"
+                ],
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "attributes"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "transaction-attributes"
+                        ]
+                      },
+                      "attributes": {
+                        "type": "object",
+                        "required": [
+                          "requiredAttributes"
+                        ],
+                        "properties": {
+                          "requiredAttributes": {
+                            "description": "List of requested attributes as key-value",
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "key",
+                                "value"
+                              ],
+                              "properties": {
+                                "key": {
+                                  "$ref": "#/components/schemas/AttributeKey"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 4000,
+                                  "example": "info@example.com"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Attributes attached",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "429": {
+            "$ref": "#/components/responses/429"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          },
+          "503": {
+            "$ref": "#/components/responses/503"
+          }
+        }
+      }
+    },
+    "/api/v1/disputes": {
+      "get": {
+        "tags": [
+          "Disputes"
+        ],
+        "summary": "List disputes",
+        "description": "The endpoint returns a list of disputes.\n\nThe list is always ordered by dispute ID in descending order, e.g. new disputes will be first.\n",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "filter",
+            "description": "The parameter allows to define how the data should be filtered. Please see `DisputeFilter` for more details.\n\nExamples:\n- `/?filter[0][field]=resourceId&filter[0][value]=9842afed-bc86-4b40-9a21-6d34d2b7c219` should return disputes\nfor transactions made on the requested resource (project, channel, etc.)\n- `/?filter[0][field]=state&filter[0][value]=action-required&filter[1][field]=updatedAfter&filter[1][value]=2023-11-20T21:15:00+00:00&filter[1][operator]=%3E%3D`\nshould return disputes with state equals `action-required` that were updated _at and after_ 21:15, Nov 11th, 2023 (`%3E%3D` is url -encoded value of `>=`)\n",
+            "style": "deepObject",
+            "schema": {
+              "$ref": "#/components/schemas/DisputeFilter"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "description": "Cursor-based pagination.\n\nThe parameter should be used to define:\n - size of response page\n - current page (pass ID of a last dispute received in `page[after]` to switch to the next page)\n",
+            "style": "deepObject",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "size": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 500,
+                  "default": 25
+                },
+                "after": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Uuid"
+                    },
+                    {
+                      "description": "ID of dispute.\nOnly disputes created after this one will be returned.\n"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "operationId": "listDisputes",
+        "responses": {
+          "200": {
+            "description": "A list of disputes with details",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              }
+            },
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "minItems": 0,
+                      "maxItems": 1000,
+                      "items": {
+                        "$ref": "#/components/schemas/Dispute"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ListResponseMeta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "The value must be prefixed with `Api-Key`, e.g.\n`Authorization: Api-Key aW3fhJHyQ9BqopFBp55TLh2AgWtsjttxaW3fhJHyQ9BqopFBp55TLh2AgWtsjttx`\n"
+      }
+    },
+    "schemas": {
+      "AbstractChargeRequest": {
+        "type": "object",
+        "required": [
+          "type",
+          "attributes"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "object",
+            "required": [
+              "projectId",
+              "paymentMethod",
+              "amount",
+              "currency"
+            ],
+            "properties": {
+              "projectId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "paymentMethod": {
+                "type": "string",
+                "enum": [
+                  "card",
+                  "open-banking"
+                ]
+              },
+              "amount": {
+                "type": "string",
+                "description": "Decimal amount represented as string. Point (\".\") must be used as decimal separator.\nDecimal separator must always be present for currencies with minor units.\n\n**Minor units must match minor units of associated currency**\n",
+                "minLength": 1,
+                "maxLength": 37,
+                "example": "10.99"
+              },
+              "currency": {
+                "$ref": "#/components/schemas/Currency"
+              },
+              "source": {
+                "$ref": "#/components/schemas/CardPaymentRequestSource"
+              },
+              "referenceId": {
+                "$ref": "#/components/schemas/ReferenceId"
+              },
+              "customerDescription": {
+                "type": "string",
+                "description": "Description of transaction to be shown to customer on Checkout form when used\n",
+                "minLength": 1,
+                "maxLength": 1024,
+                "example": "Chocolate ice cream purchase"
+              },
+              "returnUrl": {
+                "type": "string",
+                "description": "URL to redirect customer after transaction is completed.\n\nHost must be in allow list. Please contact support to add your host.\n",
+                "minLength": 1,
+                "maxLength": 2048,
+                "example": "https://example.com?my-data=my-datum"
+              },
+              "customerIp": {
+                "type": "string",
+                "description": "Valid IP address of customer.\n\nThe value is only accepted when sensitive data are allowed.\n",
+                "example": "8.8.8.8"
+              },
+              "customerId": {
+                "type": "string",
+                "description": "ID of a customer. \n\nThe value is required in scenarios when using tokenization to allow your customer to select their\npayment account from the stored by the system.\n\n**The ID is assigned per project.** In case your are using multiple projects the customers won't be\nshared between them by default. \n\nTo make your integration future-proof it's advised to use hashed email/username or at least UUID\ninstead of auto-increment values.\n",
+                "minLength": 1,
+                "maxLength": 512,
+                "example": "687c40b31b3b8812c932ecb452d334ce"
+              },
+              "email": {
+                "type": "string",
+                "minLength": 6,
+                "maxLength": 254,
+                "example": "customer@gmailo.com"
+              },
+              "terminalRouterId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "tokenizeSource": {
+                "type": "boolean",
+                "description": "When `true` the payment source would be stored by the system as a token for the futuru  the payment would be available as @todo\n",
+                "default": false
+              },
+              "meta": {
+                "$ref": "#/components/schemas/MetaData"
+              }
+            }
+          }
+        }
+      },
+      "AbstractChargeTransaction": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AbstractTransaction"
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "attributes": {
+                "type": "object",
+                "properties": {
+                  "processing": {
+                    "properties": {
+                      "source": {
+                        "$ref": "#/components/schemas/CardPaymentSource"
+                      }
+                    }
+                  },
+                  "actions": {
+                    "description": "When `status` is `action-required` this property would have details on actions required to be executed\n",
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 2,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "type",
+                        "attributes"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "action"
+                          ]
+                        },
+                        "attributes": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "required": [
+                                "action",
+                                "requiredAttributes"
+                              ],
+                              "properties": {
+                                "action": {
+                                  "type": "string",
+                                  "enum": [
+                                    "attributes-required"
+                                  ]
+                                },
+                                "requiredAttributes": {
+                                  "$ref": "#/components/schemas/RequiredAttributes"
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "required": [
+                                "action",
+                                "url"
+                              ],
+                              "properties": {
+                                "action": {
+                                  "type": "string",
+                                  "enum": [
+                                    "redirect-required"
+                                  ]
+                                },
+                                "url": {
+                                  "type": "string",
+                                  "minLength": 12,
+                                  "maxLength": 1024
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "AbstractTransaction": {
+        "type": "object",
+        "required": [
+          "type",
+          "attributes"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "attributes": {
+            "type": "object",
+            "required": [
+              "projectId",
+              "environmentMode",
+              "status",
+              "processing",
+              "createdAt"
+            ],
+            "properties": {
+              "projectId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "status": {
+                "$ref": "#/components/schemas/TransactionStatus"
+              },
+              "environmentMode": {
+                "$ref": "#/components/schemas/EnvironmentMode"
+              },
+              "createdAt": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DateTimeExtended"
+                  },
+                  {
+                    "description": "When the transaction was accepted"
+                  }
+                ]
+              },
+              "processing": {
+                "type": "object",
+                "required": [
+                  "paymentMethod",
+                  "amount",
+                  "currency"
+                ],
+                "properties": {
+                  "paymentMethod": {
+                    "type": "object",
+                    "required": [
+                      "type"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "card",
+                          "open-banking"
+                        ]
+                      }
+                    }
+                  },
+                  "amount": {
+                    "$ref": "#/components/schemas/Amount"
+                  },
+                  "currency": {
+                    "$ref": "#/components/schemas/Currency"
+                  },
+                  "processedAt": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/DateTimeExtended"
+                      },
+                      {
+                        "description": "When processing of transaction was completed"
+                      }
+                    ]
+                  },
+                  "resultCode": {
+                    "$ref": "#/components/schemas/ResultCode"
+                  }
+                }
+              },
+              "meta": {
+                "$ref": "#/components/schemas/MetaData"
+              },
+              "referenceId": {
+                "$ref": "#/components/schemas/ReferenceId"
+              }
+            }
+          }
+        }
+      },
+      "AbstractReversalRequest": {
+        "type": "object",
+        "required": [
+          "type",
+          "attributes"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "object",
+            "description": "`originalId` or `originalReferenceId` is required",
+            "required": [
+              "projectId"
+            ],
+            "properties": {
+              "originalId": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  {
+                    "description": "Required if `originalReferenceId` is not presented"
+                  }
+                ]
+              },
+              "originalReferenceId": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ReferenceId"
+                  },
+                  {
+                    "description": "Required if `originalId` is not presented"
+                  }
+                ]
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "amount": {
+                "type": "string",
+                "description": "Decimal amount represented as string. Point (\".\") must be used as decimal separator.\n\n**Minor units must match minor units of associated currency**\n\n**Without this field, amount of original transaction will be used**\n",
+                "minLength": 1,
+                "maxLength": 37,
+                "example": "10.99"
+              },
+              "referenceId": {
+                "type": "string",
+                "description": "Merchant's transaction ID; must be unique for project ID\n\nAllowed chars: alpha-numeric + (!, @, #, $, *, -, _, +, ~, _, ., |)\n",
+                "minLength": 1,
+                "maxLength": 64,
+                "example": "4249750755"
+              },
+              "meta": {
+                "$ref": "#/components/schemas/MetaData"
+              }
+            }
+          }
+        }
+      },
+      "Amount": {
+        "type": "string",
+        "description": "Decimal amount represented as string. Point (\".\") must be used as decimal separator.\nDecimal separator must always be present for currencies with minor units.\n\nMax len is 37 chars: 18 digits before decimal separator, decimal separator, 18 digits after\n\n**Minor units must match minor units of associated currency**\n",
+        "minLength": 3,
+        "maxLength": 37,
+        "example": "10.99"
+      },
+      "AttributeKey": {
+        "type": "string",
+        "enum": [
+          "billingCountry",
+          "billingLocality",
+          "billingRegion",
+          "billingPostcode",
+          "billingAddressLine1",
+          "billingAddressLine2",
+          "cardHolderName",
+          "cardNumber",
+          "cardExpirationMonth",
+          "cardExpirationYear",
+          "cardCsc",
+          "customerIp",
+          "email"
+        ],
+        "example": "email"
+      },
+      "CardBin": {
+        "type": "string",
+        "format": "integer",
+        "description": "Payment card BIN/IIN",
+        "minLength": 6,
+        "maxLength": 8,
+        "example": "497794"
+      },
+      "CardPaymentSource": {
+        "type": "object",
+        "required": [
+          "type",
+          "iin"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "card"
+            ]
+          },
+          "iin": {
+            "$ref": "#/components/schemas/CardBin"
+          },
+          "holderName": {
+            "type": "string",
+            "description": "Name of payment account holder",
+            "minLength": 1,
+            "maxLength": 100,
+            "example": "Hubert Blaine"
+          },
+          "last4": {
+            "type": "string",
+            "description": "Last 4 digits of payment card number",
+            "minLength": 4,
+            "maxLength": 4,
+            "example": "9497"
+          },
+          "expiryYear": {
+            "type": "string",
+            "description": "4 digit representation of card expiry year",
+            "minLength": 4,
+            "maxLength": 4,
+            "example": "2023"
+          },
+          "expiryMonth": {
+            "type": "string",
+            "enum": [
+              "01",
+              "02",
+              "03",
+              "04",
+              "05",
+              "06",
+              "07",
+              "08",
+              "09",
+              "10",
+              "11",
+              "12"
+            ],
+            "example": "04"
+          },
+          "brand": {
+            "type": "string",
+            "enum": [
+              "AMEX",
+              "MASTERCARD",
+              "MAESTRO",
+              "VISA"
+            ]
+          }
+        }
+      },
+      "CardPaymentRequestSource": {
+        "type": "object",
+        "required": [
+          "type",
+          "attributes"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "card"
+            ]
+          },
+          "attributes": {
+            "type": "object",
+            "required": [
+              "number",
+              "expiryYear",
+              "expiryMonth"
+            ],
+            "properties": {
+              "cardHolderName": {
+                "type": "string",
+                "description": "Name of card holder",
+                "minLength": 3,
+                "maxLength": 26,
+                "example": "Hubert Blaine"
+              },
+              "number": {
+                "type": "string",
+                "description": "Payment card number",
+                "minLength": 12,
+                "maxLength": 25,
+                "example": "4977 9494 9494 9497"
+              },
+              "expiryYear": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "description": "2 or 4 digit representation of card expiry year (as integer)",
+                    "example": 2023
+                  },
+                  {
+                    "type": "string",
+                    "description": "2 or 4 digit representation of card expiry year",
+                    "minLength": 2,
+                    "maxLength": 4,
+                    "example": "2023"
+                  }
+                ]
+              },
+              "expiryMonth": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 12,
+                    "example": 4
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "1",
+                      "2",
+                      "3",
+                      "4",
+                      "5",
+                      "6",
+                      "7",
+                      "8",
+                      "9",
+                      "01",
+                      "02",
+                      "03",
+                      "04",
+                      "05",
+                      "06",
+                      "07",
+                      "08",
+                      "09",
+                      "10",
+                      "11",
+                      "12"
+                    ],
+                    "example": "04"
+                  }
+                ]
+              },
+              "csc": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 4,
+                "example": "042"
+              },
+              "brand": {
+                "readOnly": true,
+                "type": "string",
+                "enum": [
+                  "AMEX",
+                  "MAESTRO",
+                  "MASTERCARD",
+                  "VISA"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "ChargebackTransaction": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AbstractTransaction"
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "chargeback"
+                ]
+              },
+              "attributes": {
+                "type": "object",
+                "required": [
+                  "originalId"
+                ],
+                "properties": {
+                  "originalId": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      {
+                        "description": "ID of the transaction this chargeback was issued for"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ChargeRecurringRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AbstractChargeRequest"
+          },
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "charge-recurring"
+                ]
+              },
+              "attributes": {
+                "description": "`originalId` or `originalReferenceId` is required for subsequent recurring payment",
+                "required": [
+                  "recurring"
+                ],
+                "properties": {
+                  "recurring": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/RecurringInitial"
+                      },
+                      {
+                        "$ref": "#/components/schemas/RecurringSubsequent"
+                      }
+                    ]
+                  },
+                  "originalId": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      {
+                        "description": "UUID of initial `charge-recurring`.\n\nRequired for subsequent payment if `originalReferenceId` is not present.\n"
+                      }
+                    ]
+                  },
+                  "originalReferenceId": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/ReferenceId"
+                      },
+                      {
+                        "description": "Reference ID of initial `charge-recurring`.\nRequired for subsequent payment if `originalId` is not present."
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ChargeRecurringTransaction": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AbstractChargeTransaction"
+          },
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "charge-recurring"
+                ]
+              },
+              "attributes": {
+                "required": [
+                  "recurring"
+                ],
+                "properties": {
+                  "processing": {
+                    "properties": {
+                      "originalId": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "originalReferenceId": {
+                        "$ref": "#/components/schemas/ReferenceId"
+                      }
+                    }
+                  },
+                  "recurring": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/RecurringInitial"
+                      },
+                      {
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/RecurringSubsequent"
+                          },
+                          {
+                            "required": [
+                              "scenario"
+                            ],
+                            "properties": {
+                              "scenario": {
+                                "$ref": "#/components/schemas/RecurringScenario"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ChargeRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AbstractChargeRequest"
+          },
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "charge"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "ChargeReversalRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AbstractReversalRequest"
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "charge-reversal"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "ChargeReversalTransaction": {
+        "description": "Reversal of *Charge* or *Charge Authorize*",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RefundReversalTransaction"
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "charge-reversal"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "ChargeTransaction": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AbstractChargeTransaction"
+          },
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "charge"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "Currency": {
+        "type": "string",
+        "description": "ISO 4217 alpha code + unofficial, e.g. XBT for Bitcoin",
+        "minLength": 3,
+        "maxLength": 12,
+        "example": "EUR"
+      },
+      "DateTime": {
+        "type": "string",
+        "format": "datetime",
+        "description": "Date & time in ISO 8601 format with following extra rules:\n - no fractions of a second\n - time-zone must be defined with offset using hours & minutes\n",
+        "minLength": 21,
+        "maxLength": 25,
+        "example": "2020-11-20T05:43:29+00:00"
+      },
+      "DateTimeExtended": {
+        "type": "string",
+        "format": "datetime",
+        "description": "Date & time in ISO 8601 format with following extra rules:\n - fractions of a second must be provided as six digits\n - time-zone must be defined with offset using hours & minutes\n",
+        "example": "2020-11-20T05:43:29.532453+00:00"
+      },
+      "Dispute": {
+        "type": "object",
+        "required": [
+          "type",
+          "attributes"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "dispute"
+            ]
+          },
+          "id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "readOnly": true
+              }
+            ]
+          },
+          "attributes": {
+            "type": "object",
+            "required": [
+              "amount",
+              "currency",
+              "state",
+              "disputeType",
+              "createdAt",
+              "updatedAt",
+              "reason"
+            ],
+            "properties": {
+              "amount": {
+                "$ref": "#/components/schemas/Amount"
+              },
+              "currency": {
+                "$ref": "#/components/schemas/Currency"
+              },
+              "state": {
+                "$ref": "#/components/schemas/DisputeState"
+              },
+              "disputeType": {
+                "$ref": "#/components/schemas/DisputeType"
+              },
+              "responseDeadline": {
+                "$ref": "#/components/schemas/DateTime"
+              },
+              "createdAt": {
+                "$ref": "#/components/schemas/DateTime"
+              },
+              "updatedAt": {
+                "$ref": "#/components/schemas/DateTime"
+              },
+              "reason": {
+                "type": "object",
+                "required": [
+                  "code",
+                  "name"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 36,
+                    "example": "4837"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 150,
+                    "example": "No Cardholder Authorization"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "DisputeFilter": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "field",
+            "value"
+          ],
+          "properties": {
+            "field": {
+              "type": "string",
+              "enum": [
+                "resourceId",
+                "updatedAfter",
+                "disputeType",
+                "state"
+              ]
+            },
+            "value": {
+              "oneOf": [
+                {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Uuid"
+                    },
+                    {
+                      "description": "ID of resource, e.g. project, channel, etc.\nOnly disputes for transactions created on the resource will be returned.\n"
+                    }
+                  ]
+                },
+                {
+                  "$ref": "#/components/schemas/DateTime"
+                },
+                {
+                  "$ref": "#/components/schemas/DisputeType"
+                },
+                {
+                  "$ref": "#/components/schemas/DisputeState"
+                }
+              ]
+            },
+            "operator": {
+              "type": "string",
+              "enum": [
+                "=",
+                ">",
+                "<",
+                ">=",
+                "<="
+              ]
+            }
+          }
+        }
+      },
+      "DisputeState": {
+        "type": "string",
+        "enum": [
+          "confirmed",
+          "action-required",
+          "lost",
+          "pending",
+          "won"
+        ],
+        "description": "Dispute state:\n  - `confirmed`\n  - `action-required`\n  - `pending`\n  - `lost`\n  - `won`\n"
+      },
+      "DisputeType": {
+        "type": "string",
+        "enum": [
+          "chargeback",
+          "second-chargeback"
+        ],
+        "description": "Dispute type"
+      },
+      "EnvironmentMode": {
+        "type": "string",
+        "enum": [
+          "live",
+          "sandbox"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "title"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "400.01"
+          },
+          "title": {
+            "type": "string",
+            "example": "Invalid value"
+          },
+          "details": {
+            "type": "string"
+          },
+          "meta": {
+            "type": "object"
+          }
+        }
+      },
+      "Errors": {
+        "type": "object",
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "MetaData": {
+        "oneOf": [
+          {
+            "type": "string",
+            "description": "String representation of merchant's custom meta data",
+            "maxLength": 1024
+          },
+          {
+            "type": "object",
+            "description": "Object representation of merchant's custom meta data\n\n**JSON-encoded value must fit into 1024 chars**\n"
+          }
+        ]
+      },
+      "ListResponseMeta": {
+        "type": "object",
+        "required": [
+          "page"
+        ],
+        "properties": {
+          "page": {
+            "description": "Pagination meta-data",
+            "type": "object",
+            "properties": {
+              "total": {
+                "description": "Total number of resources/records available",
+                "type": "integer",
+                "minimum": 0,
+                "example": 42
+              },
+              "size": {
+                "description": "Size of page used to prepare the response",
+                "type": "integer",
+                "minimum": 1,
+                "example": 25
+              }
+            }
+          }
+        }
+      },
+      "RecurringInitial": {
+        "type": "object",
+        "required": [
+          "scenario",
+          "expectedInitiators"
+        ],
+        "properties": {
+          "scenario": {
+            "$ref": "#/components/schemas/RecurringScenario"
+          },
+          "expectedInitiators": {
+            "description": "A list of possible initiators for subsequent payments:\n- `customer` - a customer initiated payment (aka CIT); it's expected that customer is present during a payment;\n- `merchant` - a merchant initiated payment (aka MIT); automatic payment made without a customer; you must\nmake sure a customer is aware and consent with automatic payments.\n",
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "customer",
+                "merchant"
+              ]
+            }
+          }
+        }
+      },
+      "RecurringScenario": {
+        "type": "string",
+        "enum": [
+          "unscheduled"
+        ],
+        "description": "Defines scenario when recurring payments will be used:\n- `unscheduled` - also known as *one-click payment*: there is no fixed payment amount or frequency; usual\ncases are taxi, food orders, top-ups, etc.\n"
+      },
+      "RecurringSubsequent": {
+        "type": "object",
+        "required": [
+          "initiator"
+        ],
+        "properties": {
+          "initiator": {
+            "description": "Initiator of the payment:\n- `customer` - customer present; payment might require additional authentication from a customer;\n- `merchant` - customer not present.\n\n**The value must match values in `expectedInitiators` provided in initial recurring payment request.**\n",
+            "type": "string",
+            "enum": [
+              "customer",
+              "merchant"
+            ]
+          }
+        }
+      },
+      "ReferenceId": {
+        "type": "string",
+        "description": "Merchant's transaction ID; must be unique for the project ID.\n\n**It's advised to set your reference ID to any transaction request you make.**\n\nAllowed chars: alpha-numeric + (!, @, #, $, *, -, _, +, ~, _, ., |)\n",
+        "minLength": 1,
+        "maxLength": 64,
+        "example": "4249750755"
+      },
+      "ReferenceTransactionRequestSource": {
+        "type": "object",
+        "required": [
+          "type",
+          "attributes"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "reference-transaction"
+            ]
+          },
+          "attributes": {
+            "type": "object",
+            "required": [
+              "referenceTransactionId"
+            ],
+            "properties": {
+              "referenceTransactionId": {
+                "$ref": "#/components/schemas/Uuid"
+              }
+            }
+          }
+        }
+      },
+      "RefundTransaction": {
+        "description": "Refund of *Charge* or *Charge-Capture*",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AbstractTransaction"
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "refund"
+                ]
+              },
+              "attributes": {
+                "type": "object",
+                "properties": {
+                  "processing": {
+                    "properties": {
+                      "originalId": {
+                        "$ref": "#/components/schemas/Uuid"
+                      },
+                      "originalReferenceId": {
+                        "$ref": "#/components/schemas/ReferenceId"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "RefundRequest": {
+        "type": "object",
+        "description": "Refund could be made for payment transaction with `status = settled`",
+        "required": [
+          "type",
+          "attributes"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "refund"
+            ]
+          },
+          "attributes": {
+            "type": "object",
+            "description": "`originalId` or `originalReferenceId` is required",
+            "required": [
+              "projectId"
+            ],
+            "properties": {
+              "projectId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "originalId": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  {
+                    "description": "UUID of charge to refund.\n\nRequired if `originalReferenceId` is not present.\n"
+                  }
+                ]
+              },
+              "originalReferenceId": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ReferenceId"
+                  },
+                  {
+                    "description": "Reference ID of charge to refund.\nRequired if `originalId` is not present."
+                  }
+                ]
+              },
+              "amount": {
+                "type": "string",
+                "description": "Decimal amount represented as string. Point (\".\") must be used as decimal separator.\n\n**Minor units must match minor units of associated currency**\n\n**Without this field the full amount of original transaction will be used**\n",
+                "minLength": 1,
+                "maxLength": 37,
+                "example": "10.99"
+              },
+              "referenceId": {
+                "$ref": "#/components/schemas/ReferenceId"
+              },
+              "meta": {
+                "$ref": "#/components/schemas/MetaData"
+              }
+            }
+          }
+        }
+      },
+      "RefundReversalRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AbstractReversalRequest"
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "refund-reversal"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "RefundReversalTransaction": {
+        "description": "Reversal of *Refund*",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RefundTransaction"
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "refund-reversal"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "RequiredAttributes": {
+        "type": "array",
+        "description": "List of additional attributes required to process transaction.\n\nIn case customer is redirected (or was already) to the checkout form there might be\nno need to provide any attributes, because they would be requested from the customer.\n\nIn case of Server-to-Server transaction without customer redirect the attributes\nmust be provided using *attach attributes* endpoint.\n",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "key",
+            "rules"
+          ],
+          "properties": {
+            "key": {
+              "$ref": "#/components/schemas/AttributeKey"
+            },
+            "rules": {
+              "type": "object",
+              "required": [
+                "required"
+              ],
+              "properties": {
+                "required": {
+                  "type": "boolean",
+                  "description": "Requested attribute is mandatory to process the transaction",
+                  "example": true
+                },
+                "minLength": {
+                  "type": "integer",
+                  "description": "For text values, minimal allowed length of request attribute",
+                  "minimum": 1,
+                  "example": 6
+                },
+                "maxLength": {
+                  "type": "integer",
+                  "description": "For text values, maximal allowed length of request attribute",
+                  "minimum": 1,
+                  "example": 255
+                }
+              }
+            }
+          }
+        }
+      },
+      "ResultCode": {
+        "type": "string",
+        "example": "success",
+        "description": "Result code of transaction.\n\nSome of the possible values are listed in the table below.\n\n| Result Code                 | Description                                             |\n|-----------------------------|---------------------------------------------------------|\n| `success`                   | processing of the transaction was successfully completed |\n| `failed`                    | something went wrong; no specific details could be provided |\n| `failed.invalid_card_data`  | the customer provided invalid card details, e.g. number, expiry, etc. |\n| `failed.insufficient_funds` | the customer's account doesn't have enough funds for the transaction |\n| `failed.provider`           | external service provider is not accessible; you could re-try the transaction in few minutes |\n| `failed.authentication`     | the customer failed 3DS or any other authentication |\n| `failed.routing`            | the system failed to route the transaction properly due to limits, restrictions, etc. |\n| `rejected.blocked_country`  | customer location or issuer country is not allowed |\n| `rejected.count_limit`      | allowed limit for total number of transactions was reached |\n| `rejected.volume_limit`     | allowed limit for transactions total volume was reached |\n| `rejected.max_limit`        | amount of the transaction is too large |\n| `rejected.min_limit`        | amount of the transaction is too small |\n| `rejected.subsequent_is_restricted` | subsequent recurring payments are not allowed anymore for the initial transaction |\n| `rejected.no_funds`         | not enough funds on your account to make a transaction (usually `refund` or `transfer`) |\n| `rejected.invalid_transaction_attributes` | |\n| `rejected.original_transaction_changed` | |\n| `system_error`              | something went wrong on our side; you could wait for few minutes and re-try the transaction or contact our Support Team |\n| `system_error.config`       | something was misconfigured; you should contact our Support Team before re-trying the transaction |\n"
+      },
+      "TransactionIdObject": {
+        "type": "object",
+        "required": [
+          "type",
+          "id"
+        ],
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/TransactionType"
+          },
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "TransactionStatus": {
+        "type": "string",
+        "enum": [
+          "processed",
+          "failed",
+          "action-required",
+          "processing",
+          "settled"
+        ],
+        "description": "**`status` should be compared with `processed` AND `settled` to check that transaction is successful**  \n\n- `action-required`: additional data or action (e.g., redirect) is required to proceed with transactions;\n  required action details are available in `actions` attribute;\n\n- `processing`: transaction is being processed;\n\n- `processed`: processing of the transaction successfully completed; \n  additional result details might be available in `processing.resultCode` attribute;\ndepending on payment method and environment this status might be instantly superseded by `settled`,\nso you should check both values (`processed` & `settled`) when validating transaction processing result;\n\n- `failed`: processing of transaction failed, reason of failure should be available in `processing.resultCode` field;\n\n- `settled`: funds for a successfully completed transaction were received from payer account; this status replaces `processed`\n  when funds transfer is confirmed; depending on payment method or environment the transition from `processed` to\n  `settled` might be instant or take up to multiple days.\n"
+      },
+      "TransactionType": {
+        "type": "string",
+        "enum": [
+          "charge",
+          "transfer",
+          "refund",
+          "charge-recurring",
+          "charge-reversal",
+          "transfer-reversal",
+          "refund-reversal",
+          "chargeback",
+          "chargeback-refund",
+          "second-chargeback",
+          "second-chargeback-refund",
+          "second-chargeback-capture"
+        ]
+      },
+      "TransferRequest": {
+        "type": "object",
+        "required": [
+          "type",
+          "attributes"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "transfer"
+            ]
+          },
+          "attributes": {
+            "type": "object",
+            "required": [
+              "projectId",
+              "paymentMethod",
+              "amount",
+              "currency",
+              "source"
+            ],
+            "properties": {
+              "projectId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "terminalRouterId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "paymentMethod": {
+                "type": "string",
+                "enum": [
+                  "card"
+                ]
+              },
+              "amount": {
+                "type": "string",
+                "description": "Decimal amount represented as string. Point (\".\") must be used as decimal separator.\n\n**Minor units must match minor units of associated currency**\n",
+                "minLength": 1,
+                "maxLength": 37,
+                "example": "10.99"
+              },
+              "currency": {
+                "$ref": "#/components/schemas/Currency"
+              },
+              "destination": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CardPaymentRequestSource"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ReferenceTransactionRequestSource"
+                  }
+                ]
+              },
+              "referenceId": {
+                "$ref": "#/components/schemas/ReferenceId"
+              },
+              "customerDescription": {
+                "type": "string",
+                "description": "Description of transaction to be shown to customer\n",
+                "minLength": 1,
+                "maxLength": 1024,
+                "example": "Chocolate ice cream purchase"
+              },
+              "returnUrl": {
+                "type": "string",
+                "description": "URL to redirect the customer after the transaction is completed",
+                "minLength": 1,
+                "maxLength": 2048,
+                "example": "https://example.org?my-data=my-datum"
+              },
+              "customerIp": {
+                "type": "string",
+                "description": "Valid IP of the customer",
+                "example": "127.0.0.1"
+              },
+              "meta": {
+                "$ref": "#/components/schemas/MetaData"
+              }
+            }
+          }
+        }
+      },
+      "TransferReversalRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AbstractReversalRequest"
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "transfer-reversal"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "Uuid": {
+        "type": "string",
+        "format": "uuid",
+        "minLength": 36,
+        "maxLength": 36,
+        "example": "3d639f8e-b55b-40bc-a3d0-a16057a1515e"
+      }
+    },
+    "headers": {
+      "RequestId": {
+        "description": "UUID of request. This value should be provided when contacting Support Team",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "example": "e96edfc7-2faf-4da7-b3e6-b8288e934934"
+        }
+      },
+      "RateLimit": {
+        "description": "Max allowed requests for IP per minute",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "example": 300
+        }
+      },
+      "RateLimitRemaining": {
+        "description": "Number of requests left for IP during current minute",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "example": 250
+        }
+      }
+    },
+    "responses": {
+      "401": {
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          },
+          "X-RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit"
+          },
+          "X-RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          }
+        },
+        "description": "Authorization is missing"
+      },
+      "403": {
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          },
+          "X-RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit"
+          },
+          "X-RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          }
+        },
+        "description": "Forbidden operation, data or state.\n\nPossible error codes:\n  - `403.06` - host of `returnUrl` is not allowed;\n  - `403.07` - it's not allowed to send customer IP;\n  - `403.08` - it's not allowed to send card data.\n"
+      },
+      "404": {
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          },
+          "X-RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit"
+          },
+          "X-RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          }
+        },
+        "description": "Resource not found",
+        "content": {
+          "application/vnd.api+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Errors"
+            },
+            "examples": {
+              "ProjectNotFound": {
+                "summary": "Project not found (404.02C)",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "404.02C",
+                      "title": "Project not found",
+                      "meta": {
+                        "id": "927067f5-111e-401c-bdaf-04972e8f70fc"
+                      }
+                    }
+                  ]
+                }
+              },
+              "TransactionNotFound": {
+                "summary": "Transaction not found (404.01C)",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "404.01C",
+                      "title": "Transaction not found",
+                      "meta": {
+                        "id": "927067f5-111e-401c-bdaf-04972e8f70fc"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "422": {
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          },
+          "X-RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit"
+          },
+          "X-RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          }
+        },
+        "description": "Data validation error"
+      },
+      "429": {
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          },
+          "X-RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit"
+          },
+          "X-RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          }
+        },
+        "description": "Rate-Limit is reached"
+      },
+      "500": {
+        "description": "Internal Server Error",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          },
+          "X-RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit"
+          },
+          "X-RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          }
+        },
+        "content": {
+          "application/vnd.api+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Errors"
+            },
+            "examples": {
+              "ServerError": {
+                "summary": "Server Error",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "500.99",
+                      "title": "Server Error"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "503": {
+        "description": "Service unavailable",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          },
+          "X-RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit"
+          },
+          "X-RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          }
+        }
+      },
+      "400_get": {
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          },
+          "X-RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit"
+          },
+          "X-RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          }
+        },
+        "description": "Bad Request",
+        "content": {
+          "application/vnd.api+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Errors"
+            },
+            "examples": {
+              "JsonApiIncludeNotSupported": {
+                "summary": "`include` not supported (400.102)",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "400.102",
+                      "title": "Query parameter \"include\" is not supported"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
